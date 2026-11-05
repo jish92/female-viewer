@@ -6,18 +6,21 @@
 canvas{display:block;touch-action:none}</style>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.169.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.169.0/examples/jsm/"}}</script></head>
 <body><div id="msg">Loading…</div>
-<div id="ui"><select id="ver"><option value="squat" selected>squat – deep yoga squat (malasana), forearms on knees</option></select><button id="rs">Reset view</button></div>
+<div id="ui"><select id="ver">
+<option value="squat_v2" selected>squat v2 – malasana ~10cm higher, forearms on knees</option>
+<option value="squat">squat – deep yoga squat (malasana), forearms on knees</option>
+</select><button id="rs">Reset view</button></div>
 <script type="module">
 import * as THREE from 'three';import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';import {OrbitControls} from 'three/addons/controls/OrbitControls.js';import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 const r=new THREE.WebGLRenderer({antialias:true});r.setPixelRatio(Math.min(devicePixelRatio,2));r.setSize(innerWidth,innerHeight);r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFSoftShadowMap;r.outputColorSpace=THREE.SRGBColorSpace;r.toneMapping=THREE.ACESFilmicToneMapping;document.body.appendChild(r.domElement);
 const s=new THREE.Scene();s.environment=new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(),0.04).texture;s.environmentIntensity=0.5;s.background=new THREE.Color(0xc9ccd1);
 const cam=new THREE.PerspectiveCamera(35,innerWidth/innerHeight,0.05,100);
-function home(){const ph=innerWidth<innerHeight;cam.position.set(1.4,1.0,ph?3.2:2.6);oc.target.set(0,0.55,0);oc.update()}
+function home(){const ph=innerWidth<innerHeight;cam.position.set(1.4,1.05,ph?3.3:2.7);oc.target.set(0,0.60,0);oc.update()}
 const oc=new OrbitControls(cam,r.domElement);oc.enableDamping=true;oc.minDistance=0.4;oc.maxDistance=8;
 s.add(new THREE.HemisphereLight(0xffffff,0x8d8a85,1.7));const d=new THREE.DirectionalLight(0xffffff,1.9);d.position.set(3,6,4);d.castShadow=true;d.shadow.mapSize.set(2048,2048);Object.assign(d.shadow.camera,{left:-2,right:2,top:3,bottom:-1});s.add(d);
 const g=new THREE.Mesh(new THREE.CircleGeometry(8,64),new THREE.MeshStandardMaterial({color:0xb8bbbf,roughness:1}));g.rotation.x=-Math.PI/2;g.receiveShadow=true;s.add(g);
 const L=new GLTFLoader();L.setMeshoptDecoder(MeshoptDecoder);
-const FILES={squat:'female_squat.glb'};
+const FILES={squat_v2:'female_squat_v2.glb',squat:'female_squat.glb'};
 let cur=null,tok=0;window.fv={ready:false,ver:null};
 const msg=document.getElementById('msg');
 function loadVer(v){const my=++tok;window.fv.ready=false;window.fv.ver=v;msg.textContent='Loading '+v+'…';
@@ -26,7 +29,7 @@ function loadVer(v){const my=++tok;window.fv.ready=false;window.fv.ver=v;msg.tex
   const b=new THREE.Box3().setFromObject(gl.scene);gl.scene.position.y-=b.min.y;cur=gl.scene;s.add(cur);home();
   msg.textContent=v+' · drag to orbit · pinch / scroll to zoom';window.fv.ready=true;window.fv.meshes=0;cur.traverse(o=>{if(o.isMesh&&o.visible)window.fv.meshes++})},
   e=>{if(e.total)msg.textContent='Loading '+v+'… '+Math.round(100*e.loaded/e.total)+'%'},e=>{msg.textContent='Load error: '+e})}
-document.getElementById('ver').onchange=e=>loadVer(e.target.value);loadVer('squat');
+document.getElementById('ver').onchange=e=>loadVer(e.target.value);loadVer('squat_v2');
 document.getElementById('rs').onclick=home;
 addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();r.setSize(innerWidth,innerHeight)});
 r.setAnimationLoop(()=>{oc.update();r.render(s,cam)});

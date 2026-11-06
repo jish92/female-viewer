@@ -56,8 +56,8 @@ window.fv={ready:false,ver:null,bounce:{b:0,g:0,acc:0}};
 
 // Jog-v6g spring (same tuning as squat-pulse a67b543)
 const SPR={
-  b:{freq:2.5, damp:0.22, drive:12.0, sag:0.28, upScale:0.50, downScale:1.25, max:0.95},
-  g:{freq:2.0, damp:0.26, drive:8.0, sag:0.20, upScale:0.50, downScale:1.30, max:0.90},
+  b:{freq:2.9, damp:0.15, drive:40.0, sag:0.28, upScale:0.80, downScale:1.05, max:1.00},
+  g:{freq:2.1, damp:0.20, drive:18.0, sag:0.22, upScale:0.55, downScale:1.25, max:1.00},
 };
 function makeSpring(p){return {x:p.sag,v:0,p}}
 let breast=makeSpring(SPR.b), glute=makeSpring(SPR.g);
@@ -127,7 +127,7 @@ function loadVer(v){const my=++tok;window.fv.ready=false;window.fv.ver=v;msg.tex
  bodyMeshes=[];
  if(cur){s.remove(cur);cur.traverse(o=>{if(o.isMesh){o.geometry.dispose();if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose&&m.dispose())}}});cur=null}
  setAnimUI(v);
- const BUILD='20261106blender2';
+ const BUILD='20261106blender3b';
  L.load(FILES[v]+(LIVE_BOUNCE.has(v)?'?v='+BUILD:''),gl=>{if(my!==tok)return;gl.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false;const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if(!m)return;if(/hair|eyebrow|eyelash|high-poly/i.test(m.name||o.name||'')){m.alphaTest=0.5;m.side=THREE.DoubleSide}else{m.alphaTest=0;m.transparent=false;m.opacity=1;m.depthWrite=true}if(/Bikini/i.test(m.name||o.name||'')){m.side=THREE.DoubleSide;m.roughness=0.55;m.transparent=false;m.opacity=1;m.depthWrite=true}if(o.morphTargetInfluences&&o.morphTargetInfluences.length){m.morphTargets=true;m.morphNormals=true}m.needsUpdate=true});
   if(o.geometry){o.geometry.computeBoundingSphere();o.geometry.computeBoundingBox()}
   if(LIVE_BOUNCE.has(v)&&o.morphTargetDictionary&&('bounce_breast' in o.morphTargetDictionary||'bounce_glute' in o.morphTargetDictionary)){if(o.geometry)o.geometry.morphTargetsRelative=true;const isHairFace=/hair|eyebrow|eyelash|teeth|tongue|high-poly|eye|neck|head/i.test(o.name||'');const isBody=/^base$/i.test(o.name)||/^body$/i.test(o.name)||/bikini/i.test(o.name||'');if(!isHairFace&&isBody)bodyMeshes.push(o)}

@@ -127,7 +127,7 @@ function loadVer(v){const my=++tok;window.fv.ready=false;window.fv.ver=v;msg.tex
  bodyMeshes=[];
  if(cur){s.remove(cur);cur.traverse(o=>{if(o.isMesh){o.geometry.dispose();if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose&&m.dispose())}}});cur=null}
  setAnimUI(v);
- const BUILD='20261106c_revert';
+ const BUILD='20261106blender2';
  L.load(FILES[v]+(LIVE_BOUNCE.has(v)?'?v='+BUILD:''),gl=>{if(my!==tok)return;gl.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false;const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if(!m)return;if(/hair|eyebrow|eyelash|high-poly/i.test(m.name||o.name||'')){m.alphaTest=0.5;m.side=THREE.DoubleSide}else{m.alphaTest=0;m.transparent=false;m.opacity=1;m.depthWrite=true}if(/Bikini/i.test(m.name||o.name||'')){m.side=THREE.DoubleSide;m.roughness=0.55;m.transparent=false;m.opacity=1;m.depthWrite=true}if(o.morphTargetInfluences&&o.morphTargetInfluences.length){m.morphTargets=true;m.morphNormals=true}m.needsUpdate=true});
   if(o.geometry){o.geometry.computeBoundingSphere();o.geometry.computeBoundingBox()}
   if(LIVE_BOUNCE.has(v)&&o.morphTargetDictionary&&('bounce_breast' in o.morphTargetDictionary||'bounce_glute' in o.morphTargetDictionary)){if(o.geometry)o.geometry.morphTargetsRelative=true;const isHairFace=/hair|eyebrow|eyelash|teeth|tongue|high-poly|eye|neck|head/i.test(o.name||'');const isBody=/^base$/i.test(o.name)||/^body$/i.test(o.name)||/bikini/i.test(o.name||'');if(!isHairFace&&isBody)bodyMeshes.push(o)}

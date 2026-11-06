@@ -92,7 +92,7 @@ function pulseHalf(){
   return 0.5-0.5*Math.cos(2*Math.PI*phi);
 }
 function applyBounce(){
-  const bb=Math.max(-0.55,Math.min(1.05,breast.x)), gg=Math.max(-0.55,Math.min(1.05,glute.x)), th=pulseHalf();
+  const bb=Math.max(-0.55,Math.min(1.35,breast.x)), gg=Math.max(-0.55,Math.min(1.35,glute.x)), th=pulseHalf();
   window.fv.bounce.b=bb; window.fv.bounce.g=gg; window.fv.bounce.th=th;
   for(const m of bodyMeshes){
     const d=m.morphTargetDictionary||{};
@@ -100,7 +100,7 @@ function applyBounce(){
     if(!inf) continue;
     const isBody=/^base$/i.test(m.name)||/^body$/i.test(m.name);
     if(d.to_half!=null) inf[d.to_half]=th;
-    if(d.bounce_breast!=null) inf[d.bounce_breast]=isBody?bb*0.92:bb;
+    if(d.bounce_breast!=null) inf[d.bounce_breast]=isBody?bb*0.95:bb;
     if(d.bounce_glute!=null) inf[d.bounce_glute]=isBody?gg*0.95:gg;
   }
 }

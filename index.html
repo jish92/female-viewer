@@ -9,7 +9,8 @@
 <body><div id="msg">Loading…</div>
 <div id="ui"><select id="ver">
 <option value="squat_v5">squat v5 – volume-preserved hips/glutes</option>
-<option value="squat_pulse_v4" selected>squat pulse v4 – bounce</option>
+<option value="squat_pulse_v5b" selected>squat pulse v5b – bone bounce</option>
+<option value="squat_pulse_v4">squat pulse v4 – bounce</option>
 <option value="squat_pulse_v3">squat pulse v3 – morph + jog bounce</option>
 <option value="squat_v4">squat v4 – fix=0 deep, clean thighs</option>
 <option value="squat_pulse_v2">squat pulse v2 – morph deep↔half + jog bounce</option>
@@ -36,6 +37,7 @@ s.add(new THREE.HemisphereLight(0xffffff,0x8d8a85,1.7));const d=new THREE.Direct
 const g=new THREE.Mesh(new THREE.CircleGeometry(8,64),new THREE.MeshStandardMaterial({color:0xb8bbbf,roughness:1}));g.rotation.x=-Math.PI/2;g.receiveShadow=true;s.add(g);
 const L=new GLTFLoader();L.setMeshoptDecoder(MeshoptDecoder);
 const FILES={
+  squat_pulse_v5b:'female_squat_pulse_v5b.glb',
   squat_v5:'female_squat_v5.glb',
   squat_pulse_v4:'female_squat_pulse_v4.glb',
   squat_pulse_v3:'female_squat_pulse_v3.glb',
@@ -46,9 +48,11 @@ const FILES={
   squat_v2:'female_squat_v2.glb',
   squat:'female_squat.glb'
 };
-const PULSE=new Set(['squat_pulse','squat_pulse_v2','squat_pulse_v3','squat_pulse_v4']);
+const BONE=new Set(['squat_pulse_v5b']);
+const PULSE=new Set(['squat_pulse_v5b','squat_pulse','squat_pulse_v2','squat_pulse_v3','squat_pulse_v4']);
 const LIVE_BOUNCE=new Set(['squat_pulse_v4']);
 
+let BB=null;
 let cur=null,tok=0,mixer=null,action=null,playing=true,speed=1.0;
 let bodyMeshes=[], breastStr=1, gluteStr=1;
 const clock=new THREE.Clock();
@@ -108,6 +112,24 @@ function applyBounce(){
   }
 }
 
+// v5b bone bounce: baked 'squat_bounce' clip; strength = per-bone weight blend of bounce tracks vs rest tracks
+function boneBounce(mixer,clip,root){
+  const isB=n=>/^breast_[lr]\./.test(n), isG=n=>/^glute_[lr]\./.test(n);
+  const main=[],bB=[],bG=[],rB=[],rG=[];
+  const restTrack=t=>{const bn=t.name.split('.')[0],pr=t.name.split('.')[1];const o=root.getObjectByName(bn);const v=o[pr==='quaternion'?'quaternion':pr==='scale'?'scale':'position'].toArray();
+    const T=pr==='quaternion'?THREE.QuaternionKeyframeTrack:THREE.VectorKeyframeTrack;return new T(t.name,[0,clip.duration],v.concat(v))};
+  for(const t of clip.tracks){if(isB(t.name)){bB.push(t);rB.push(restTrack(t))}else if(isG(t.name)){bG.push(t);rG.push(restTrack(t))}else main.push(t)}
+  const mk=(n,tr)=>{const a=mixer.clipAction(new THREE.AnimationClip(n,clip.duration,tr));a.loop=THREE.LoopRepeat;a.play();return a};
+  const A={main:mk('main',main),bB:mk('bB',bB),rB:mk('rB',rB),bG:mk('bG',bG),rG:mk('rG',rG)};
+  const all=Object.values(A);
+  return {A,
+    setB(s){A.bB.setEffectiveWeight(s);A.rB.setEffectiveWeight(1-s)},
+    setG(s){A.bG.setEffectiveWeight(s);A.rG.setEffectiveWeight(1-s)},
+    setSpeed(v){all.forEach(a=>a.timeScale=v)},
+    setPaused(p){all.forEach(a=>a.paused=p)},
+    get time(){return A.main.time}, set time(t){all.forEach(a=>a.time=t)}};
+}
+
 const msg=document.getElementById('msg');
 const playBtn=document.getElementById('play');
 const spdWrap=document.getElementById('spdWrap');
@@ -115,41 +137,43 @@ const bounceWrap=document.getElementById('bounceWrap');
 const spd=document.getElementById('spd');
 const spdVal=document.getElementById('spdVal');
 function setAnimUI(v){
-  const pulse=PULSE.has(v), live=LIVE_BOUNCE.has(v);
+  const pulse=PULSE.has(v), live=LIVE_BOUNCE.has(v)||BONE.has(v);
   playBtn.style.display=pulse?'':'none';
   spdWrap.style.display=pulse?'flex':'none';
   bounceWrap.style.display=live?'flex':'none';
   if(pulse){playing=true;playBtn.textContent='Pause';spd.value='1';speed=1;spdVal.textContent='1.0/s'}
+  document.getElementById('bb').max=document.getElementById('bg').max=BONE.has(v)?'1':'2';
   if(live){breastStr=1;gluteStr=1;document.getElementById('bb').value='1';document.getElementById('bg').value='1';document.getElementById('bbVal').textContent='1.00×';document.getElementById('bgVal').textContent='1.00×';resetSprings()}
 }
 function loadVer(v){const my=++tok;window.fv.ready=false;window.fv.ver=v;msg.textContent='Loading '+v+'…';
- if(mixer){mixer.stopAllAction();mixer=null;action=null}
+ if(mixer){mixer.stopAllAction();mixer=null;action=null}BB=null;
  bodyMeshes=[];
  if(cur){s.remove(cur);cur.traverse(o=>{if(o.isMesh){o.geometry.dispose();if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose&&m.dispose())}}});cur=null}
  setAnimUI(v);
  const BUILD='20261106blender3b';
- L.load(FILES[v]+(LIVE_BOUNCE.has(v)?'?v='+BUILD:''),gl=>{if(my!==tok)return;gl.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false;const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if(!m)return;if(/hair|eyebrow|eyelash|high-poly/i.test(m.name||o.name||'')){m.alphaTest=0.5;m.side=THREE.DoubleSide}else{m.alphaTest=0;m.transparent=false;m.opacity=1;m.depthWrite=true}if(/Bikini/i.test(m.name||o.name||'')){m.side=THREE.DoubleSide;m.roughness=0.55;m.transparent=false;m.opacity=1;m.depthWrite=true}if(o.morphTargetInfluences&&o.morphTargetInfluences.length){m.morphTargets=true;m.morphNormals=true}m.needsUpdate=true});
+ L.load(FILES[v]+(BONE.has(v)?'?v=20261106v5b':LIVE_BOUNCE.has(v)?'?v='+BUILD:''),gl=>{if(my!==tok)return;gl.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false;const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if(!m)return;if(/hair|eyebrow|eyelash|high-poly/i.test(m.name||o.name||'')){m.alphaTest=0.5;m.side=THREE.DoubleSide}else{m.alphaTest=0;m.transparent=false;m.opacity=1;m.depthWrite=true}if(/Bikini/i.test(m.name||o.name||'')){m.side=THREE.DoubleSide;m.roughness=0.55;m.transparent=false;m.opacity=1;m.depthWrite=true}if(o.morphTargetInfluences&&o.morphTargetInfluences.length){m.morphTargets=true;m.morphNormals=true}m.needsUpdate=true});
   if(o.geometry){o.geometry.computeBoundingSphere();o.geometry.computeBoundingBox()}
   if(LIVE_BOUNCE.has(v)&&o.morphTargetDictionary&&('bounce_breast' in o.morphTargetDictionary||'bounce_glute' in o.morphTargetDictionary)){if(o.geometry)o.geometry.morphTargetsRelative=true;const isHairFace=/hair|eyebrow|eyelash|teeth|tongue|high-poly|eye|neck|head/i.test(o.name||'');const isBody=/^base$/i.test(o.name)||/^body$/i.test(o.name)||/bikini/i.test(o.name||'');if(!isHairFace&&isBody)bodyMeshes.push(o)}
  }});
   const b=new THREE.Box3().setFromObject(gl.scene);gl.scene.position.y-=b.min.y;cur=gl.scene;s.add(cur);home();
   if(gl.animations&&gl.animations.length){
     mixer=new THREE.AnimationMixer(cur);
-    action=mixer.clipAction(gl.animations[0]);
+    if(BONE.has(v)){const clip=gl.animations.find(a=>a.name==='squat_bounce')||gl.animations[0];BB=boneBounce(mixer,clip,cur);BB.setB(breastStr);BB.setG(gluteStr);BB.setSpeed(speed);action=BB.A.main;window.fv.BB=BB;window.fv.clip=clip.name;window.fv.scene=cur;window.fv.seek=t=>{BB.time=((t%1)+1)%1*clip.duration;mixer.update(0)}}
+    else{action=mixer.clipAction(gl.animations[0]);
     action.loop=THREE.LoopRepeat;action.clampWhenFinished=false;
-    action.timeScale=speed;action.play();playing=true;playBtn.textContent='Pause';
+    action.timeScale=speed;action.play();}playing=true;playBtn.textContent='Pause';
   }
-  const live=LIVE_BOUNCE.has(v);
+  const live=LIVE_BOUNCE.has(v)||BONE.has(v);
   msg.textContent=v+(PULSE.has(v)?' · play/pause · speed 0.3–2/s':'')+(live?' · breast/glute bounce':'')+' · drag to orbit · pinch / scroll to zoom';
   window.fv.ready=true;window.fv.meshes=0;window.fv.bodyBounceMeshes=bodyMeshes.length;
   cur.traverse(o=>{if(o.isMesh&&o.visible)window.fv.meshes++})},
   e=>{if(e.total)msg.textContent='Loading '+v+'… '+Math.round(100*e.loaded/e.total)+'%'},e=>{msg.textContent='Load error: '+e})}
-document.getElementById('ver').onchange=e=>loadVer(e.target.value);loadVer('squat_pulse_v4');
+document.getElementById('ver').onchange=e=>loadVer(e.target.value);loadVer('squat_pulse_v5b');
 document.getElementById('rs').onclick=home;
-playBtn.onclick=()=>{if(!action)return;playing=!playing;if(playing){action.paused=false;playBtn.textContent='Pause'}else{action.paused=true;playBtn.textContent='Play'}};
-spd.oninput=()=>{speed=parseFloat(spd.value)||1;spdVal.textContent=speed.toFixed(1)+'/s';if(action)action.timeScale=speed};
-document.getElementById('bb').oninput=e=>{breastStr=+e.target.value;document.getElementById('bbVal').textContent=(+e.target.value).toFixed(2)+'×'};
-document.getElementById('bg').oninput=e=>{gluteStr=+e.target.value;document.getElementById('bgVal').textContent=(+e.target.value).toFixed(2)+'×'};
+playBtn.onclick=()=>{if(!action)return;playing=!playing;if(BB)BB.setPaused(!playing);else action.paused=!playing;playBtn.textContent=playing?'Pause':'Play'};
+spd.oninput=()=>{speed=parseFloat(spd.value)||1;spdVal.textContent=speed.toFixed(1)+'/s';if(BB)BB.setSpeed(speed);else if(action)action.timeScale=speed};
+document.getElementById('bb').oninput=e=>{breastStr=+e.target.value;document.getElementById('bbVal').textContent=(+e.target.value).toFixed(2)+'×';if(BB)BB.setB(Math.min(1,breastStr))};
+document.getElementById('bg').oninput=e=>{gluteStr=+e.target.value;document.getElementById('bgVal').textContent=(+e.target.value).toFixed(2)+'×';if(BB)BB.setG(Math.min(1,gluteStr))};
 addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();r.setSize(innerWidth,innerHeight)});
 r.setAnimationLoop(()=>{
   const dt=Math.min(clock.getDelta(),0.05);

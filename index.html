@@ -55,7 +55,7 @@ const clock=new THREE.Clock();
 window.fv={ready:false,ver:null,bounce:{b:0,g:0,acc:0},inflLog:[],bodyMeshes:null};
 
 // Jog-v6g-style vertical spring (match squat-pulse). Morph ≈ -Y.
-const BUILD='20261106s';
+const BUILD='20261106t';
 const CHEST_H=0.40;
 const SPR={
   b:{freq:2.9, damp:0.15, drive:40.0, sag:0.28, upScale:0.80, downScale:1.05, max:1.00},
@@ -140,7 +140,7 @@ function morphedLocal(mesh, vi){
 function morphedWorld(mesh, vi){ return mesh.localToWorld(morphedLocal(mesh, vi)); }
 function ensureStrapMat(){
   if(strapMat) return strapMat;
-  strapMat=new LineMaterial({color:0xc4182a,linewidth:0.011,worldUnits:true,dashed:false,alphaToCoverage:true});
+  strapMat=new LineMaterial({color:0xc4182a,linewidth:6,worldUnits:false,dashed:false});
   strapMat.depthTest=false; strapMat.depthWrite=false;
   strapMat.resolution.set(innerWidth, innerHeight);
   return strapMat;

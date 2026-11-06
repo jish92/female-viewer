@@ -52,12 +52,14 @@ const LIVE_BOUNCE=new Set(['squat_pulse_v4']);
 let cur=null,tok=0,mixer=null,action=null,playing=true,speed=1.0;
 let bodyMeshes=[], breastStr=1, gluteStr=1;
 const clock=new THREE.Clock();
-window.fv={ready:false,ver:null,bounce:{b:0,g:0,acc:0}};
+window.fv={ready:false,ver:null,bounce:{b:0,g:0,acc:0},inflLog:[],bodyMeshes:null};
 
-// Jog-v6g spring (same tuning as squat-pulse a67b543)
+// Jog-v6g-style vertical spring (match squat-pulse). Morph ≈ -Y.
+const BUILD='20261106c';
+const CHEST_H=0.40;
 const SPR={
-  b:{freq:2.5, damp:0.22, drive:12.0, sag:0.28, upScale:0.50, downScale:1.25, max:0.95},
-  g:{freq:2.0, damp:0.26, drive:8.0, sag:0.20, upScale:0.50, downScale:1.30, max:0.90},
+  b:{freq:2.2, damp:0.18, drive:28.0, sag:0.35, upScale:0.55, downScale:1.45, max:1.20},
+  g:{freq:1.9, damp:0.22, drive:16.0, sag:0.25, upScale:0.50, downScale:1.35, max:1.00},
 };
 function makeSpring(p){return {x:p.sag,v:0,p}}
 let breast=makeSpring(SPR.b), glute=makeSpring(SPR.g);
@@ -83,7 +85,8 @@ function driverAcc(){
   if(!action) return 0;
   const dur=action.getClip().duration||1;
   const phi=((action.time/dur)%1+1)%1;
-  return 2*Math.PI*Math.PI*Math.cos(2*Math.PI*phi)*(speed*speed);
+  const thDotDot=2*Math.PI*Math.PI*Math.cos(2*Math.PI*phi)*(speed/dur)*(speed/dur);
+  return CHEST_H*thDotDot;
 }
 function pulseHalf(){
   if(!action) return 0;
@@ -92,7 +95,7 @@ function pulseHalf(){
   return 0.5-0.5*Math.cos(2*Math.PI*phi);
 }
 function applyBounce(){
-  const bb=Math.max(-0.55,Math.min(1.35,breast.x)), gg=Math.max(-0.55,Math.min(1.35,glute.x)), th=pulseHalf();
+  const bb=Math.max(-0.45,Math.min(1.50,breast.x)), gg=Math.max(-0.45,Math.min(1.45,glute.x)), th=pulseHalf();
   window.fv.bounce.b=bb; window.fv.bounce.g=gg; window.fv.bounce.th=th;
   for(const m of bodyMeshes){
     const d=m.morphTargetDictionary||{};
@@ -127,7 +130,7 @@ function loadVer(v){const my=++tok;window.fv.ready=false;window.fv.ver=v;msg.tex
  bodyMeshes=[];
  if(cur){s.remove(cur);cur.traverse(o=>{if(o.isMesh){o.geometry.dispose();if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose&&m.dispose())}}});cur=null}
  setAnimUI(v);
- L.load(FILES[v],gl=>{if(my!==tok)return;gl.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false;const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if(!m)return;if(/hair|eyebrow|eyelash|high-poly/i.test(m.name||o.name||'')){m.alphaTest=0.5;m.side=THREE.DoubleSide}else{m.alphaTest=0;m.transparent=false;m.opacity=1;m.depthWrite=true}if(/Bikini/i.test(m.name||o.name||'')){m.side=THREE.DoubleSide;m.roughness=0.55;m.transparent=false;m.opacity=1;m.depthWrite=true}if(o.morphTargetInfluences&&o.morphTargetInfluences.length){m.morphTargets=true;m.morphNormals=true}m.needsUpdate=true});
+ L.load(FILES[v]+(LIVE_BOUNCE.has(v)?'?v='+BUILD:''),gl=>{if(my!==tok)return;gl.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false;const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if(!m)return;if(/hair|eyebrow|eyelash|high-poly/i.test(m.name||o.name||'')){m.alphaTest=0.5;m.side=THREE.DoubleSide}else{m.alphaTest=0;m.transparent=false;m.opacity=1;m.depthWrite=true}if(/Bikini/i.test(m.name||o.name||'')){m.side=THREE.DoubleSide;m.roughness=0.55;m.transparent=false;m.opacity=1;m.depthWrite=true}if(o.morphTargetInfluences&&o.morphTargetInfluences.length){m.morphTargets=true;m.morphNormals=true}m.needsUpdate=true});
   if(o.geometry){o.geometry.computeBoundingSphere();o.geometry.computeBoundingBox()}
   if(LIVE_BOUNCE.has(v)&&o.morphTargetDictionary&&('bounce_breast' in o.morphTargetDictionary||'bounce_glute' in o.morphTargetDictionary)){if(o.geometry)o.geometry.morphTargetsRelative=true;const isHairFace=/hair|eyebrow|eyelash|teeth|tongue|high-poly|eye|neck|head/i.test(o.name||'');const isBody=/^base$/i.test(o.name)||/^body$/i.test(o.name)||/bikini/i.test(o.name||'');if(!isHairFace&&isBody)bodyMeshes.push(o)}
  }});
@@ -140,7 +143,7 @@ function loadVer(v){const my=++tok;window.fv.ready=false;window.fv.ver=v;msg.tex
   }
   const live=LIVE_BOUNCE.has(v);
   msg.textContent=v+(PULSE.has(v)?' · play/pause · speed 0.3–2/s':'')+(live?' · breast/glute bounce':'')+' · drag to orbit · pinch / scroll to zoom';
-  window.fv.ready=true;window.fv.meshes=0;window.fv.bodyBounceMeshes=bodyMeshes.length;
+  window.fv.ready=true;window.fv.meshes=0;window.fv.bodyBounceMeshes=bodyMeshes.length;window.fv.bodyMeshes=bodyMeshes;
   cur.traverse(o=>{if(o.isMesh&&o.visible)window.fv.meshes++})},
   e=>{if(e.total)msg.textContent='Loading '+v+'… '+Math.round(100*e.loaded/e.total)+'%'},e=>{msg.textContent='Load error: '+e})}
 document.getElementById('ver').onchange=e=>loadVer(e.target.value);loadVer('squat_pulse_v4');
@@ -160,6 +163,11 @@ r.setAnimationLoop(()=>{
       stepSpring(breast, acc, breastStr, dt);
       stepSpring(glute, acc, gluteStr, dt);
       applyBounce();
+      const _m=bodyMeshes[0];
+      const _i=_m&&_m.morphTargetDictionary?_m.morphTargetDictionary.bounce_breast:null;
+      const _inf=_i!=null?_m.morphTargetInfluences[_i]:0;
+      const _log=window.fv.inflLog; _log.push({t:performance.now(),b:window.fv.bounce.b,g:window.fv.bounce.g,acc:window.fv.bounce.acc,infB:_inf});
+      if(_log.length>240)_log.splice(0,_log.length-240);
     }
   } else if(mixer && LIVE_BOUNCE.has(window.fv.ver)){
     stepSpring(breast, 0, breastStr, dt);
